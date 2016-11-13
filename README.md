@@ -1,2 +1,2 @@
 # libstratum
-ZCash Stratum protocol implementation written in pure C for Linux
+ZCash Stratum protocol implementation written in C for Linux
