@@ -139,7 +139,7 @@ static void* write_handler(void* data)
     char* sdata = NULL;
     size_t size = 0;
 
-    int res = queue_top(&ctx->write_queue, &sdata, &size);
+    int res = queue_top(&ctx->write_queue, (void**)&sdata, &size);
     if(res != QUEUE_EMPTY)
     {
         ssize_t ret = write(ctx->socketfd, sdata, size);
@@ -157,13 +157,13 @@ static void* write_handler(void* data)
     return data;
 }
 
-extern void test_vstring();
+extern void run_tests();
 
 int main() {
 
     /// test
 
-    test_vstring();
+    run_tests();
 
     ///======
 
@@ -234,7 +234,7 @@ int main() {
 
 
     const char* subscribe_method = "{\"id\":1,\"method\":\"mining.subscribe\",\"params\":[\"test\", null,\"eu1-zcash.flypool.org\",\"3333\"]}\n";
-    queue_push(&stratum_ctx.write_queue, subscribe_method, strlen(subscribe_method));
+    queue_push(&stratum_ctx.write_queue, (void*)subscribe_method, strlen(subscribe_method));
 
     pthread_t t1;
     pthread_attr_t attr;

@@ -6,6 +6,7 @@
 #include <string.h>
 #include "queue.h"
 
+/*
 static inline int _queue_node_create(struct queue_node_t** node)
 {
     *node = malloc(sizeof(struct queue_node_t));
@@ -19,12 +20,14 @@ static inline int _queue_node_create(struct queue_node_t** node)
     return QUEUE_OK;
 }
 
+
 static inline void _queue_node_free(struct queue_node_t* node)
 {
     if(node->data) free(node->data);
 
     free(node);
 }
+*/
 
 void queue_init(struct queue_t* queue)
 {
@@ -73,6 +76,8 @@ int queue_top(struct queue_t* queue, void** pdata, size_t* size)
 
     *pdata = queue->head->data;
     *size = queue->head->size;
+
+    return QUEUE_OK;
 }
 
 int queue_pop(struct queue_t* queue, void** pdata, size_t* size)
