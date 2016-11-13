@@ -18,6 +18,7 @@ enum {
 struct ht_item_t
 {
     char* name;
+    //TODO replace char* to void*
     char* value;
     unsigned long hash;
     struct ht_item_t* next;

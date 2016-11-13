@@ -47,9 +47,9 @@ int ht_init(struct hashtable_t* ht)
 
 static __always_inline void ht_destroy_item(struct ht_item_t* item)
 {
-    if(item->name) release(item->name);
-    if(item->value) release(item->value);
-    release(item);
+    SAFE_RELEASE(item->name);
+    SAFE_RELEASE(item->value);
+    free(item);
 }
 
 static __always_inline void ht_destroy_items_line(struct ht_item_t* start_item)
@@ -85,7 +85,7 @@ int ht_create_item(struct ht_item_t** pitem, const char* name, unsigned long nam
 
     if((item->name = alloc8(strlen(name))) == NULL)
     {
-        release(item);
+        free(item);
         fprintf(stderr, "[ht_create_item] can't alloc");
         return HT_ERR;
     }
@@ -94,8 +94,8 @@ int ht_create_item(struct ht_item_t** pitem, const char* name, unsigned long nam
 
     if((item->value = alloc8(strlen(value))) == NULL)
     {
-        release(item->name);
-        release(item);
+        free(item->name);
+        free(item);
         fprintf(stderr, "[ht_create_item] can't alloc");
         return HT_ERR;
     }
@@ -134,7 +134,7 @@ int ht_set(struct hashtable_t* ht, const char* name, const char* value)
             return HT_ERR;
         }
 
-        release(item->value);
+        free(item->value);
         item->value = tmp_val;
 
         strcpy(item->value, value);

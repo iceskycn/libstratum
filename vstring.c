@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "vstring.h"
+#include "mem.h"
 
 void vstring_init(struct vstring_t* vs)
 {
@@ -17,7 +18,7 @@ void vstring_init(struct vstring_t* vs)
 int vstring_create(struct vstring_t* vs, const char* data, size_t size)
 {
     size_t to_allocate = size*2;
-    vs->data = malloc(to_allocate);
+    vs->data = alloc16(to_allocate);
     if(vs->data == NULL)
     {
         fprintf(stderr, "vstring_create can't alloc %lu bytes", to_allocate);
@@ -37,7 +38,7 @@ int vstring_append(struct vstring_t* vs, const char* data, size_t size)
     if(vs->allocated - vs->size < size)
     {
         size_t to_alloc = (vs->allocated + size) * 2;
-        char* new_buffer = malloc(to_alloc);
+        char* new_buffer = alloc16(to_alloc);
         if(new_buffer == NULL)
         {
             fprintf(stderr, "vstring_append can't alloc %lu bytes", to_alloc);
