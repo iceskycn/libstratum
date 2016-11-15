@@ -12,6 +12,8 @@ enum
     ST_NOT_FOUND,
     ST_EMPTY,
     ST_EXISTS,
+    ST_OUT_OF_RANGE,
+    ST_SIZE_EXCEED,
     ST_UNKNOWN
 };
 

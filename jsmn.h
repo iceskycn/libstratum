@@ -7,7 +7,7 @@
 #define __JSMN_H_
 
 #include <stddef.h>
-#include "hash_table.h"
+#include "graph.h"
 
 /**
  * JSON type identifier. Basic types are:
@@ -72,7 +72,7 @@ int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
                jsmntok_t *tokens, unsigned int num_tokens);
 
 
-int jsmn_parse_ht(const char* js, size_t len, struct hashtable_t* ht);
+int jsmn_parse_sg(const char* js, size_t len, struct sg_vertex** root);
 
 
 #endif /* __JSMN_H_ */

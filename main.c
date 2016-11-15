@@ -16,6 +16,8 @@
 #include "queue.h"
 #include "vstring.h"
 
+#include "log.h"
+
 // Default buffer size
 #define BUF_SIZE 1024
 
@@ -165,6 +167,14 @@ int main() {
 
     run_tests();
 
+    init_log(LOGLEVEL_DEBUG);
+
+    LOG_ERROR("Hello World1");
+    LOG_INFO("Hello World2");
+    LOG_DEBUG("Hello World3");
+
+
+    return 0;
     ///======
 
 

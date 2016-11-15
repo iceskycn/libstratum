@@ -5,8 +5,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "types.h"
 #include "vstring.h"
 #include "hash_table.h"
+#include "graph.h"
 
 void test_vstring()
 {
@@ -20,8 +22,6 @@ void test_vstring()
     memcpy(s, str1, strlen(str1));
     memcpy(s+strlen(str1), str2, strlen(str2));
     memcpy(s+strlen(str1)+strlen(str2), str3, strlen(str3));
-
-    printf("[test_vstring]: Initial full string: %s\n", s);
 
     struct vstring_t vs;
     vstring_init(&vs);
@@ -131,8 +131,111 @@ void test_hashtable()
 #undef ASSERT_HT_VALUE
 }
 
+static __always_inline struct string_slice_t get_str_slice(const char* str)
+{
+    struct string_slice_t ss;
+    ss.start = (char*)str;
+    ss.len = strlen(str);
+
+    return ss;
+}
+
+void test_graph()
+{
+
+#define SG_VERTEX_APPEND_STR(v, str, nv) { \
+    struct string_slice_t ss; \
+    ss.start = (char*)str; \
+    ss.len = strlen(str); \
+    if(sg_vertex_append(&ss, v, nv) != ST_OK) \
+    { \
+        fprintf(stderr, "[test_graph] sg_vertex_append failed"); \
+        exit(1);    \
+    } \
+}
+
+#define SG_VERTEX_SEARCH_STR(str) { \
+    struct string_slice_t ss = get_str_slice(str); \
+    struct sg_vertex* found; \
+    if(sg_search(&ss, root, &found, 0) != ST_OK) \
+    { \
+        fprintf(stderr, "[test_graph] sg_search failed"); \
+        exit(1);    \
+    } \
+}
+
+
+    struct sg_vertex *root = NULL;
+
+
+    struct string_slice_t ssroot = get_str_slice("root");
+    if(sg_vertex_create(&ssroot , &root) != ST_OK)
+    {
+        fprintf(stderr, "[test_graph] sg_vertex_create failed");
+        exit(1);
+    }
+
+    struct sg_vertex* nv;
+    SG_VERTEX_APPEND_STR(root, "key1", &nv);
+    SG_VERTEX_APPEND_STR(nv, "value1", NULL);
+
+    SG_VERTEX_APPEND_STR(root, "key2", &nv);
+    SG_VERTEX_APPEND_STR(nv, "k2value1", NULL);
+    SG_VERTEX_APPEND_STR(nv, "k2value2", NULL);
+    SG_VERTEX_APPEND_STR(nv, "k2value3", &nv);
+
+    struct sg_vertex* nv2;
+    SG_VERTEX_APPEND_STR(nv, "subkey1", &nv2);
+    SG_VERTEX_APPEND_STR(nv2, "subvalue1", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "subvalue2", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "subvalue3", NULL);
+
+    SG_VERTEX_APPEND_STR(nv, "subkey2", &nv2);
+    SG_VERTEX_APPEND_STR(nv2, "k2subvalue1", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "k2subvalue2", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "k2subvalue3", NULL);
+
+    SG_VERTEX_APPEND_STR(nv, "subkey3", &nv2);
+    SG_VERTEX_APPEND_STR(nv2, "k3subvalue1", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "k3subvalue2", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "k3subvalue3", &nv);
+
+    SG_VERTEX_APPEND_STR(nv, "subsubkey1", &nv2);
+    SG_VERTEX_APPEND_STR(nv2, "subsubvalue1", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "subsubvalue2", NULL);
+    SG_VERTEX_APPEND_STR(nv2, "subsubvalue3", NULL);
+
+
+    SG_VERTEX_SEARCH_STR("key1");
+    SG_VERTEX_SEARCH_STR("value1");
+    SG_VERTEX_SEARCH_STR("key2");
+    SG_VERTEX_SEARCH_STR("k2value1");
+    SG_VERTEX_SEARCH_STR("k2value2");
+    SG_VERTEX_SEARCH_STR("k2value3");
+    SG_VERTEX_SEARCH_STR("subkey1");
+    SG_VERTEX_SEARCH_STR("subvalue1");
+    SG_VERTEX_SEARCH_STR("subvalue2");
+    SG_VERTEX_SEARCH_STR("subvalue3");
+    SG_VERTEX_SEARCH_STR("subkey2");
+    SG_VERTEX_SEARCH_STR("k2subvalue1");
+    SG_VERTEX_SEARCH_STR("k2subvalue2");
+    SG_VERTEX_SEARCH_STR("k2subvalue3");
+    SG_VERTEX_SEARCH_STR("subkey3");
+    SG_VERTEX_SEARCH_STR("k3subvalue1");
+    SG_VERTEX_SEARCH_STR("k3subvalue2");
+    SG_VERTEX_SEARCH_STR("k3subvalue3");
+    SG_VERTEX_SEARCH_STR("subsubkey1");
+    SG_VERTEX_SEARCH_STR("subsubvalue1");
+    SG_VERTEX_SEARCH_STR("subsubvalue1");
+    SG_VERTEX_SEARCH_STR("subsubvalue1");
+
+
+    sg_recursive_free(root);
+}
+
 void run_tests()
 {
     test_vstring();
     test_hashtable();
+    test_graph();
 }

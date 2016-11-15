@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "jsmn.h"
+#include "types.h"
 
 /**
  * Allocates a fresh unused token from the token pull.
@@ -319,21 +320,44 @@ void jsmn_init(jsmn_parser *parser) {
 }
 
 
-int jsmn_parse_ht(const char* js, size_t len, struct hashtable_t* ht)
+int jsmn_parse_sg(const char* js, size_t len, struct sg_vertex** root)
 {
     jsmn_parser p;
     jsmntok_t t[128];
     int r = jsmn_parse(&p, js, strlen(js), t, sizeof(t)/sizeof(t[0]));
     if (r < 0) {
-        fprintf(stderr, "[jsmn_parse_ht]: failed to parse JSON: %d\n", r);
-        return r;
+        fprintf(stderr, "[jsmn_parse_sg]: failed to parse JSON: %d\n", r);
+        return ST_ERR;
     }
 
 
     /* Assume the top-level element is an object */
     if (r < 1 || t[0].type != JSMN_OBJECT) {
-        fprintf(stderr, "[jsmn_parse_ht]: Object expected\n");
-        return -1;
+        fprintf(stderr, "[jsmn_parse_sg]: Object expected\n");
+        return ST_ERR;
+    }
+
+    struct string_slice_t ssroot;
+    ssroot.start = (char*)js;
+    ssroot.len = len;
+    if(sg_vertex_create(&ssroot, root) != ST_OK)
+    {
+        fprintf(stderr, "[jsmn_parse_sg]: Object expected\n");
+        return ST_ERR;
+    }
+
+    for (int i = 1; i < r; i++) {
+
+        if(t[i].type == JSMN_STRING)
+        {
+
+        }
+
+
+        struct string_slice_t ss;
+        ssroot.start = (char*)js;
+        ssroot.len = len;
+
     }
 
 
