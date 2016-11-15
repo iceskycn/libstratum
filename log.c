@@ -4,9 +4,13 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
 #include <time.h>
 #include <sys/syscall.h>
 #include "log.h"
+
+extern int syscall(int);
 
 pthread_spinlock_t stderr_spinlock;
 pthread_spinlock_t stdout_spinlock;
@@ -36,11 +40,20 @@ static __always_inline const char* loglevel_s(int lvl)
     }
 }
 
-void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
+void _log(const char* msg, const char* file, const char* fun, int line, int lvl, ...)
 {
     if(lvl <= loglevel)
     {
         pid_t tid = syscall(__NR_gettid);
+
+        va_list args;
+        va_start(args, lvl);
+
+        char buf[LOG_FORMAT_BUFFER_MAX_SIZE];
+        memset(buf, 0, LOG_FORMAT_BUFFER_MAX_SIZE);
+        vsnprintf(buf, LOG_FORMAT_BUFFER_MAX_SIZE, msg, args);
+
+        va_end(args);
 
         if(lvl == LOG_ERROR)
         {
@@ -52,7 +65,7 @@ void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
             fprintf(stderr, "[%02d/%02d/%d - %02d:%02d:%02d][0x%08x][%s][%s]: %s - %s:%d\n",
                     tml->tm_mday, tml->tm_mon+1, tml->tm_year-100,
                     tml->tm_hour, tml->tm_min, tml->tm_sec,
-                    tid, loglevel_s(lvl),fun, msg, file, line
+                    tid, loglevel_s(lvl),fun, buf, file, line
             );
             fflush(stderr);
 
@@ -68,7 +81,7 @@ void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
             fprintf(stdout, "[%02d/%02d/%d - %02d:%02d:%02d][0x%08x][%s][%s]: %s - %s:%d\n",
                     tml->tm_mday, tml->tm_mon+1, tml->tm_year-100,
                     tml->tm_hour, tml->tm_min, tml->tm_sec,
-                    tid, loglevel_s(lvl), fun, msg, file, line
+                    tid, loglevel_s(lvl), fun, buf, file, line
             );
 
             fflush(stdout);

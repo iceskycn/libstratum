@@ -28,6 +28,7 @@ struct queue_node_t
 struct queue_t
 {
     struct queue_node_t* head;
+    struct queue_node_t* tail;
 };
 
 void queue_init(struct queue_t* queue);

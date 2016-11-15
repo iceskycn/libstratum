@@ -168,10 +168,6 @@ int main() {
     /// test
     run_tests();
 
-    LOG_ERROR("Hello World1");
-    LOG_INFO("Hello World2");
-    LOG_DEBUG("Hello World3");
-
 
     return 0;
     ///======

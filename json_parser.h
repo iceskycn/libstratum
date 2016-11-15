@@ -11,8 +11,8 @@
 struct js_token_t
 {
     int type;
-    char* ts;
-    char* te;
+    const char* ts;
+    const char* te;
 };
 
 struct js_lexer_t

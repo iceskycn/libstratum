@@ -237,7 +237,7 @@ void test_graph()
 
 void test_json()
 {
-    const char* json = "{ \"test\" : \"value1\" }";
+    const char* json = "{ \"key1\" : [ \"test\", 432, 3.14 ], \"val\" : true, \"obj\" : { \"dev\" : null } }";
     struct js_lexer_t lexer;
     if(js_fsm_scan(json, &lexer) != ST_OK)
     {

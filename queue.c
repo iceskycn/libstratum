@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "queue.h"
+#include "log.h"
 
 /*
 static inline int _queue_node_create(struct queue_node_t** node)
@@ -36,17 +37,11 @@ void queue_init(struct queue_t* queue)
 
 int queue_push(struct queue_t* queue, void* data, size_t size)
 {
-    struct queue_node_t** plast = &queue->head;
-
-    while(*plast)
-    {
-        plast = &(*plast)->prev;
-    }
 
     struct queue_node_t* node = malloc(sizeof(struct queue_node_t));
     if(node == NULL)
     {
-        fprintf(stderr, "queue_node malloc failed");
+        LOG_ERROR("queue_node malloc failed");
         return QUEUE_ERR;
     }
 
@@ -56,7 +51,7 @@ int queue_push(struct queue_t* queue, void* data, size_t size)
     if(node->data == NULL)
     {
         free(node);
-        fprintf(stderr, "queue data malloc failed");
+        LOG_ERROR("queue data malloc failed");
         return QUEUE_ERR;
     }
 
@@ -64,7 +59,17 @@ int queue_push(struct queue_t* queue, void* data, size_t size)
 
     memcpy(node->data, data, size);
 
-    *plast = node;
+
+    if(queue->tail == NULL)
+    {
+        queue->tail = node;
+        queue->head = node;
+    } else
+    {
+        queue->tail->prev = node;
+        queue->tail = node;
+    }
+
 
     return QUEUE_OK;
 }
@@ -98,6 +103,9 @@ int queue_pop(struct queue_t* queue, void** pdata, size_t* size)
 
     struct queue_node_t* tmp = queue->head;
     queue->head = queue->head->prev;
+
+    if(queue->head == NULL)
+        queue->tail = NULL;
 
     free(tmp);
 
