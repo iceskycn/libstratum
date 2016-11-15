@@ -163,11 +163,10 @@ extern void run_tests();
 
 int main() {
 
-    /// test
-
-    run_tests();
-
     init_log(LOGLEVEL_DEBUG);
+
+    /// test
+    run_tests();
 
     LOG_ERROR("Hello World1");
     LOG_INFO("Hello World2");

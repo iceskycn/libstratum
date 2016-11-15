@@ -6,6 +6,7 @@
 #ifndef LIBSTRATUM_LOG_H
 #define LIBSTRATUM_LOG_H
 
+//TODO variadic input format
 #define LOG(msg, lvl) { _log(msg, __FILE__, __PRETTY_FUNCTION__, __LINE__, lvl); }
 #define LOG_DEBUG(msg) LOG(msg, LOG_DEBUG)
 #define LOG_ERROR(msg) LOG(msg, LOG_ERROR)

@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
-
+#include <sys/syscall.h>
 #include "log.h"
 
 pthread_spinlock_t stderr_spinlock;
@@ -30,7 +30,7 @@ static __always_inline const char* loglevel_s(int lvl)
         case LOG_DEBUG:
             return "DEBUG";
         case LOG_INFO:
-            return "INFO";
+            return "INFO ";
         default:
             return "UNKNOWN";
     }
@@ -40,6 +40,8 @@ void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
 {
     if(lvl <= loglevel)
     {
+        pid_t tid = syscall(__NR_gettid);
+
         if(lvl == LOG_ERROR)
         {
             pthread_spin_lock(&stderr_spinlock);
@@ -47,10 +49,10 @@ void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
             time_t t = time(NULL);
             struct tm* tml = localtime(&t);
 
-            fprintf(stderr, "[%02d/%02d/%d - %02d:%02d:%02d][%s][%s]: %s - %s:%d\n",
+            fprintf(stderr, "[%02d/%02d/%d - %02d:%02d:%02d][0x%08x][%s][%s]: %s - %s:%d\n",
                     tml->tm_mday, tml->tm_mon+1, tml->tm_year-100,
                     tml->tm_hour, tml->tm_min, tml->tm_sec,
-                    loglevel_s(lvl), fun, msg, file, line
+                    tid, loglevel_s(lvl),fun, msg, file, line
             );
             fflush(stderr);
 
@@ -63,10 +65,10 @@ void _log(const char* msg, const char* file, const char* fun, int line, int lvl)
             time_t t = time(NULL);
             struct tm* tml = localtime(&t);
 
-            fprintf(stdout, "[%02d/%02d/%d - %02d:%02d:%02d][%s][%s]: %s - %s:%d\n",
+            fprintf(stdout, "[%02d/%02d/%d - %02d:%02d:%02d][0x%08x][%s][%s]: %s - %s:%d\n",
                     tml->tm_mday, tml->tm_mon+1, tml->tm_year-100,
                     tml->tm_hour, tml->tm_min, tml->tm_sec,
-                    loglevel_s(lvl), fun, msg, file, line
+                    tid, loglevel_s(lvl), fun, msg, file, line
             );
 
             fflush(stdout);

@@ -7,33 +7,27 @@
 #include <string.h>
 #include "stack.h"
 #include "log.h"
+#include "json_parser.h"
 
-#define JS_FSM_NUM_STATES 50
-#define JS_LEXER_MAX_TOKENS 50
-
-enum {
-    JSON_OBJECT,
-    JSON_ARRAY,
-    JSON_FLOAT,
-    JSON_INTEGER,
-    JSON_STRING
-};
-
-
-struct js_token_t
+enum
 {
-    int type;
-    char* ts;
-    char* te;
+    JS_FSM_STATE_ERROR = 0,
+    JS_FSM_STATE_INITIAL,
+    JS_FSM_STATE_STRING,
+    JS_FSM_STATE_NUMBER,
+    JS_FSM_STATE_INT,
+    JS_FSM_STATE_FLOAT,
+    JS_FSM_STATE_BEGIN_OBJECT,
+    JS_FSM_STATE_END_OBJECT,
+    JS_FSM_STATE_QUOTE,
+    JS_FSM_STATE_COLON,
+    JS_FSM_STATE_DOT,
+    JS_FSM_STATE_WS,
+    JS_FSM_STATE_COMMA,
+    JS_FSM_STATE_EOF
 };
 
-struct js_lexer_t
-{
-    struct js_token_t tokens[JS_LEXER_MAX_TOKENS];
-    int p;
-};
-
-__always_inline int js_lexer_push_token(struct js_lexer_t* lexer, int type, char* ts, char* te)
+static __always_inline int js_lexer_push_token(struct js_lexer_t* lexer, int type, char* ts, char* te)
 {
     if(lexer->p >= JS_LEXER_MAX_TOKENS) {
         LOG_ERROR("Stack size exceeds");
@@ -48,42 +42,66 @@ __always_inline int js_lexer_push_token(struct js_lexer_t* lexer, int type, char
     return ST_OK;
 }
 
-enum
+const char* js_token_type_s(int t)
 {
-    JS_FSM_STATE_ERROR = 0,
-    JS_FSM_STATE_INITIAL,
-    JS_FSM_STATE_OBJECT,
-    JS_FSM_STATE_STRING,
-    JS_FSM_STATE_CHAR,
-    JS_FSM_STATE_NUMBER,
-    JS_FSM_STATE_INT,
-    JS_FSM_STATE_FLOAT,
-    JS_FSM_STATE_BEGIN_OBJECT,
-    JS_FSM_STATE_END_OBJECT,
-    JS_FSM_STATE_QUOTE,
-    JS_FSM_STATE_COLON,
-    JS_FSM_STATE_DOT,
-    JS_FSM_STATE_WS,
-    JS_FSM_STATE_EOF
-};
+    switch(t)
+    {
+        case JS_FSM_STATE_STRING:
+            return "STRING";
+        case JS_FSM_STATE_BEGIN_OBJECT:
+            return "BEGIN_OBJECT";
+        case JS_FSM_STATE_END_OBJECT:
+            return "END_OBJECT";
+        case JS_FSM_STATE_COLON:
+            return "COLON";
+        case JS_FSM_STATE_COMMA:
+            return "COMMA";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+void js_debug_token(struct js_token_t *t)
+{
+    char buf[1024];
+    memset(buf, 0, 1024);
+
+    size_t slen = (size_t)(t->te - t->ts);
+    int res = snprintf(buf, 1024, "\nTOKEN_TYPE: %s\nTOKEN_STRING: %.*s\n", js_token_type_s(t->type), slen, t->ts);
+    if(res < 0)
+    {
+        LOG_ERROR("can't snprinf");
+        return;
+    }
+
+    LOG_DEBUG(buf);
+}
 
 static const int js_fsm_translation_table[JS_FSM_NUM_STATES][3] =
 {
         {JS_FSM_STATE_INITIAL, JS_FSM_STATE_WS, JS_FSM_STATE_INITIAL},
-        {JS_FSM_STATE_INITIAL, JS_FSM_STATE_BEGIN_OBJECT, JS_FSM_STATE_OBJECT},
-        {JS_FSM_STATE_OBJECT, JS_FSM_STATE_OBJECT, JS_FSM_STATE_OBJECT},
-        {JS_FSM_STATE_OBJECT, JS_FSM_STATE_END_OBJECT, JS_FSM_STATE_INITIAL},
+        {JS_FSM_STATE_INITIAL, JS_FSM_STATE_BEGIN_OBJECT, JS_FSM_STATE_INITIAL},
+        {JS_FSM_STATE_INITIAL, JS_FSM_STATE_END_OBJECT, JS_FSM_STATE_INITIAL},
         {JS_FSM_STATE_INITIAL, JS_FSM_STATE_COLON, JS_FSM_STATE_INITIAL},
+        {JS_FSM_STATE_INITIAL, JS_FSM_STATE_COMMA, JS_FSM_STATE_INITIAL},
         {JS_FSM_STATE_INITIAL, JS_FSM_STATE_QUOTE, JS_FSM_STATE_STRING},
         {JS_FSM_STATE_STRING, JS_FSM_STATE_STRING, JS_FSM_STATE_STRING},
         {JS_FSM_STATE_STRING, JS_FSM_STATE_QUOTE, JS_FSM_STATE_INITIAL},
-
 };
 
-struct js_fsm_t
+static __always_inline int js_fsm_translate(int cur_state, int next_state)
 {
-    struct fstack_int_t states;
-};
+    for(int j = 0; j < JS_FSM_NUM_STATES; ++j)
+    {
+        if(js_fsm_translation_table[j][0] == cur_state && js_fsm_translation_table[j][1] == next_state) {
+            return js_fsm_translation_table[j][2];
+        }
+    }
+
+    LOG_ERROR("Can't translate");
+
+    return JS_FSM_STATE_ERROR;
+}
 
 static __always_inline int pack_2i16_i32(int lb16, int hb16)
 {
@@ -99,14 +117,16 @@ static __always_inline void unpack_2i16_i32(int i, int* lb16, int* hb16)
     *hb16 = (i & 0xFFFF0000)>>16;
 }
 
-int js_fsm_parse(struct js_fsm_t* fsm, const char* json, struct js_lexer_t* lexer)
+int js_fsm_scan(const char* json, struct js_lexer_t* lexer)
 {
-    memset(fsm, 0, sizeof(struct js_fsm_t));
+    memset(lexer, 0, sizeof(struct js_lexer_t));
 
     int cur_state = JS_FSM_STATE_INITIAL;
     int i = 0;
+    char* ts = NULL;
+    char* te = NULL;
 
-    while(cur_state != JS_FSM_STATE_ERROR || cur_state != JS_FSM_STATE_EOF)
+    while(1)
     {
         char ch = json[i];
         int ns = 0;
@@ -122,11 +142,20 @@ int js_fsm_parse(struct js_fsm_t* fsm, const char* json, struct js_lexer_t* lexe
             }
             case '}': {
                 ns = JS_FSM_STATE_END_OBJECT;
+                if(js_lexer_push_token(lexer, ns, (char*)&json[i], (char*)&json[i+1]) != ST_OK)
+                    return ST_ERR;
 
                 break;
             }
             case ':':
                 ns = JS_FSM_STATE_COLON;
+                if(js_lexer_push_token(lexer, ns, (char*)&json[i], (char*)&json[i+1]) != ST_OK)
+                    return ST_ERR;
+                break;
+            case ',':
+                ns = JS_FSM_STATE_COMMA;
+                if(js_lexer_push_token(lexer, ns, (char*)&json[i], (char*)&json[i+1]) != ST_OK)
+                    return ST_ERR;
                 break;
             case ' ':
                 ns = JS_FSM_STATE_WS;
@@ -137,10 +166,29 @@ int js_fsm_parse(struct js_fsm_t* fsm, const char* json, struct js_lexer_t* lexe
             case '\n':
                 ns = JS_FSM_STATE_WS;
                 break;
+            case '"': {
+                ns = JS_FSM_STATE_QUOTE;
+
+                if(!ts) ts = (char*)&json[i+1];
+                else te = (char*)&json[i];
+
+                if(ts && te) {
+                    if (js_lexer_push_token(lexer, JS_FSM_STATE_STRING, ts, te) != ST_OK)
+                        return ST_ERR;
+
+                    ts = NULL;
+                    te = NULL;
+                }
+
+                break;
+            }
+            case '\0':
+                ns = JS_FSM_STATE_EOF;
+                break;
 
             default: {
                 if (isalnum(ch)) {
-                    ns = JS_FSM_STATE_CHAR;
+                    ns = JS_FSM_STATE_STRING;
                 } else
                 {
                     ns = JS_FSM_STATE_ERROR;
@@ -150,8 +198,23 @@ int js_fsm_parse(struct js_fsm_t* fsm, const char* json, struct js_lexer_t* lexe
             }
         }
 
+        if(ns == JS_FSM_STATE_ERROR)
+        {
+            LOG_ERROR("Can't understand input symbol");
+            return ST_ERR;
+        }
+
+        if(ns == JS_FSM_STATE_EOF)
+            break;
+
+
+        if((cur_state = js_fsm_translate(cur_state, ns)) == JS_FSM_STATE_ERROR)
+            return ST_ERR;
+
         ++i;
 
     }
+
+    return ST_OK;
 
 }

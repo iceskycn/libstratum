@@ -9,6 +9,8 @@
 #include "vstring.h"
 #include "hash_table.h"
 #include "graph.h"
+#include "json_parser.h"
+#include "log.h"
 
 void test_vstring()
 {
@@ -233,9 +235,26 @@ void test_graph()
     sg_recursive_free(root);
 }
 
+void test_json()
+{
+    const char* json = "{ \"test\" : \"value1\" }";
+    struct js_lexer_t lexer;
+    if(js_fsm_scan(json, &lexer) != ST_OK)
+    {
+        LOG_ERROR("Error in json scanner");
+        exit(EXIT_FAILURE);
+    }
+
+    LOG_DEBUG("== Parsed tokens == ");
+
+    for(int i = 0; i < lexer.p; ++i)
+        js_debug_token(&lexer.tokens[i]);
+}
+
 void run_tests()
 {
     test_vstring();
     test_hashtable();
     test_graph();
+    test_json();
 }
