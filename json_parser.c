@@ -9,6 +9,8 @@
 #include "log.h"
 #include "json_parser.h"
 
+#define FSM_CALLBACK(x) ((size_t)&x)
+
 enum
 {
     JS_FSM_STATE_ERROR = 0,
@@ -45,7 +47,7 @@ static __always_inline int js_lexer_push_token(struct js_lexer_t* lexer, int typ
     return ST_OK;
 }
 
-const char* js_token_type_s(int t)
+static __always_inline const char* js_token_type_s(int t)
 {
     switch(t)
     {
@@ -74,7 +76,7 @@ const char* js_token_type_s(int t)
     }
 }
 
-void js_debug_token(struct js_token_t *t)
+static __always_inline void js_debug_token(struct js_token_t *t)
 {
     size_t slen = (size_t)(t->te - t->ts);
     LOG_DEBUG("\nTOKEN_TYPE: %s\nTOKEN_STRING: %.*s\n", js_token_type_s(t->type), slen, t->ts);
@@ -91,8 +93,6 @@ struct js_fsm_t
 };
 
 typedef int(*js_fsm_trans_callback_t)(struct js_fsm_t*);
-
-#define FSM_CALLBACK(x) ((size_t)&x)
 
 static __always_inline int js_fsm_push_single_token(struct js_fsm_t* fsm, int token_type)
 {
@@ -426,4 +426,182 @@ int js_fsm_scan(const char* json, struct js_lexer_t* lexer)
     return ST_OK;
 
 }
+
+enum {
+    JS_OBJECT,
+    JS_ARRAY,
+    JS_INTEGER,
+    JS_FLOAT,
+    JS_STRING,
+    JS_BOOL,
+    JS_NULL
+
+};
+
+struct js_ast_bool_t
+{
+    int value;
+};
+
+struct js_ast_string_t
+{
+    const char* first;
+    const char* last;
+};
+
+struct js_ast_float_t
+{
+    float value;
+};
+
+struct js_ast_integer_t
+{
+    int value;
+};
+
+struct js_ast_primitive_t
+{
+    union {
+        struct js_ast_bool_t b;
+        struct js_ast_float_t f;
+        struct js_ast_integer_t i;
+        struct js_ast_string_t s;
+    };
+};
+
+struct js_ast_array_t
+{
+    struct js_ast_primitive_t values[JS_AST_ARRAY_MAX_ELEMENTS];
+    size_t p;
+};
+
+struct js_ast_object_t;
+
+struct js_ast_value_t
+{
+    struct js_ast_string_t* name;
+    int type;
+    union
+    {
+        struct js_ast_primitive_t prim;
+        struct js_ast_array_t arr;
+        struct js_ast_object_t* obj;
+    };
+};
+
+struct js_ast_object_t
+{
+    struct js_ast_value_t values[JS_AST_OBJECT_MAX_ELEMENTS];
+    size_t p;
+};
+
+
+struct js_ast_t
+{
+    struct js_ast_value_t root;
+};
+
+__always_inline int js_ast_object_get_next_value(struct js_ast_object_t* o, struct js_ast_value_t** val)
+{
+    if(o->p >= JS_AST_OBJECT_MAX_ELEMENTS)
+    {
+        LOG_ERROR("Object exceeds estimated size");
+        return ST_SIZE_EXCEED;
+    }
+
+    *val = &o->values[o->p++];
+
+    return ST_OK;
+}
+
+
+__always_inline int js_lex_cur(struct js_lexer_t* lex, struct js_token_t** t)
+{
+    if(lex->g >= JS_LEXER_MAX_TOKENS)
+    {
+        LOG_ERROR("Lexer exceeds estimated size");
+        return ST_SIZE_EXCEED;
+    }
+
+    if(lex->g >= lex->p)
+    {
+        return ST_OUT_OF_RANGE;
+    }
+
+    *t = &lex->tokens[lex->g];
+
+    return ST_OK;
+}
+
+__always_inline int js_lex_next(struct js_lexer_t* lex, struct js_token_t** t)
+{
+    if(lex->g >= JS_LEXER_MAX_TOKENS)
+    {
+        LOG_ERROR("Lexer exceeds estimated size");
+        return ST_SIZE_EXCEED;
+    }
+
+    if(lex->g >= lex->p)
+    {
+        return ST_OUT_OF_RANGE;
+    }
+
+    ++lex->g;
+
+    if(t)
+        *t = &lex->tokens[lex->g];
+
+
+    return ST_OK;
+
+}
+
+int js_ast_parse_object(struct js_lexer_t* lex, struct js_ast_value_t* parent)
+{
+    struct js_token_t* t = NULL;
+    CHECK_RETURN_ERR(js_lex_cur(lex, &t));
+
+    if(t->type != JS_FSM_STATE_BEGIN_OBJECT)
+    {
+        LOG_ERROR("Expected '{'");
+        return ST_ERR;
+    }
+
+
+
+}
+
+int js_ast_parse_value(struct js_lexer_t* lex, struct js_ast_value_t* value)
+{
+    struct js_token_t* t = NULL;
+    CHECK_RETURN_ERR(js_lex_cur(lex, &t));
+
+    if(t->type != JS_FSM_STATE_BEGIN_OBJECT || t->type != JS_FSM_STATE_STRING)
+    {
+        LOG_ERROR("Expected token '{' or string");
+        return ST_ERR;
+    }
+
+    if(t->type == JS_FSM_STATE_BEGIN_OBJECT)
+    {
+        value->type = JS_OBJECT;
+        if((value->obj = alloc16(sizeof(struct js_ast_object_t))) == NULL)
+        {
+            LOG_ERROR("Can't alloc");
+            return ST_ERR;
+        }
+
+
+
+    }
+
+
+}
+
+
+int js_ast_parse(struct js_lexer_t* lex, struct js_ast_t* ast)
+{
+
+}
+
 
